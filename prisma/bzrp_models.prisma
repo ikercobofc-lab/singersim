@@ -1,0 +1,39 @@
+// Añade estos modelos a tu schema.prisma o cópialos a prisma/schema.prisma
+// Archivo de ayuda: prisma/bzrp_models.prisma
+// Inserta los modelos dentro del bloque `model` en tu schema principal y ejecuta `prisma migrate`.
+
+model BZRPProposal {
+  id           String   @id @default(cuid())
+  songId       String
+  song         Song     @relation(fields: [songId], references: [id])
+  proposerId   String
+  proposer     User     @relation(fields: [proposerId], references: [id])
+  announcement String
+  scheduledAt  DateTime
+  state        String   @default("pending") // pending/accepted/declined/scheduled
+  createdAt    DateTime @default(now())
+  visibility   String   @default("public")
+}
+
+model CollaborationInvite {
+  id           String   @id @default(cuid())
+  fromId       String
+  toId         String
+  songId       String
+  message      String?
+  requirements Json?    // estructura JSON con criterios (genre, minFollowers, role, etc.)
+  state        String   @default("pending") // pending/accepted/rejected
+  createdAt    DateTime @default(now())
+  respondedAt  DateTime?
+}
+
+model RemixRequest {
+  id             String   @id @default(cuid())
+  originalSongId String
+  requesterId    String
+  targetIds      String[] // IDs de usuarios a los que se envía la petición
+  proposalTitle  String?
+  state          String   @default("pending") // pending/accepted/rejected
+  createdAt      DateTime @default(now())
+  acceptedAt     DateTime?
+}
