@@ -32,6 +32,7 @@ export interface Singer {
   ovyWSoundCompleted: boolean;
   bigOneCrossoverCompleted?: boolean;
   eurovisionParticipationCount: number; // Max 2 times in career
+  contactedArtistIds?: string[]; // IDs of artists who have reached out or collaborated
   careerWeek: number;
   careerYear: number;
 }
@@ -108,7 +109,7 @@ export interface NPCArtist {
   id: string;
   name: string;
   genre: MusicGenre;
-  fameTier: 'Emergente' | 'Famoso' | 'Superestrella' | 'Leyenda';
+  fameTier: 'Promesa' | 'Emergente' | 'Famoso' | 'Superestrella' | 'Leyenda';
   followers: number;
   chemistryRequired: number;
   avatar: string;

@@ -15,6 +15,12 @@ import { INITIAL_GLOBAL_CHARTS, generateCountryCharts } from '../data/initialCha
 import { FAMOUS_ARTISTS, FAMOUS_PRODUCERS, getArtistDialogue } from '../data/artists';
 import { RANDOM_DECISION_EVENTS } from '../data/events';
 import { calculateSongSuccess, evaluateAlbumSuccess, checkGrammysEligibility } from '../utils/simulationEngine';
+import { 
+  getPlayerFameTier, 
+  checkBzrpEligibility, 
+  checkCrossoverOrWSoundEligibility, 
+  evaluateCollabPermission 
+} from '../utils/collabRules';
 import { useAuth } from './AuthContext';
 import { saveCareerToFirestore, loadCareerFromFirestore } from '../firebase/firestoreService';
 
@@ -38,6 +44,7 @@ interface GameContextType {
   activeCollabOffer: CollaborationProposal | null;
   setActiveCollabOffer: (offer: CollaborationProposal | null) => void;
   respondToCollaboration: (proposalId: string, accept: boolean, ownership?: 'player' | 'collaborator', targetAlbumId?: string) => void;
+  proposeCollaboration: (artistId: string, format: 'single' | 'album', albumId?: string) => { success: boolean; message: string };
   createSongRemix: (originalSong: Song, guestArtistName: string) => void;
   releaseSingle: (songDraft: any) => any;
   scheduleSongRelease: (songDraft: any) => void;
@@ -120,11 +127,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCountryCharts(generateCountryCharts(selectedCountry));
   }, [selectedCountry]);
 
-  // Check BZRP eligibility
+  // Check BZRP eligibility (Must be emergente, leyenda or artista del momento)
   const bzrpEligible = !!(
     singer && 
-    !singer.bzrpSessionCompleted && 
-    (singer.stats.reputation >= 55 || singer.stats.fans >= 350000)
+    checkBzrpEligibility(singer, discography, globalCharts, countryCharts).eligible
   );
 
   const createSinger = (data: Partial<Singer>) => {
@@ -762,6 +768,93 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setInbox(prev => prev.map(p => p.id === proposalId ? { ...p, status: accept ? 'accepted' : 'rejected' } : p));
   };
 
+  // Player-initiated Collaboration Proposal (Active Propose)
+  const proposeCollaboration = (
+    artistId: string, 
+    format: 'single' | 'album', 
+    albumId?: string
+  ): { success: boolean; message: string } => {
+    if (!singer) return { success: false, message: 'No hay cantante activo.' };
+    const targetArtist = FAMOUS_ARTISTS.find(a => a.id === artistId);
+    if (!targetArtist) return { success: false, message: 'Artista no encontrado en el directorio.' };
+
+    const perm = evaluateCollabPermission(singer, discography, targetArtist, inbox);
+    if (!perm.canPropose) {
+      return { success: false, message: perm.explanation };
+    }
+
+    if (singer.stats.energy < 15) {
+      return { success: false, message: 'Necesitas al menos 15 de energía para entrar al estudio a grabar una colaboración.' };
+    }
+
+    const studioCost = format === 'single' ? 10000 : 6000;
+    if (singer.stats.money < studioCost) {
+      return { success: false, message: `Necesitas al menos ${studioCost.toLocaleString()} € de presupuesto para producir la colaboración.` };
+    }
+
+    const targetAlbum = albumId ? albums.find(a => a.id === albumId) : undefined;
+    const songTitleProposed = `${targetArtist.name.split(' ')[0]} & ${singer.artistName} - Conexión`;
+    const combinedFollowers = targetArtist.followers + singer.stats.fans;
+    const initialStreams = Math.floor(combinedFollowers * 0.12) + 250000;
+
+    const collabSong: Song = {
+      id: 'collab_out_' + Date.now(),
+      title: `${songTitleProposed} (feat. ${targetArtist.name})`,
+      genre: targetArtist.genre,
+      theme: 'Fiesta / Flex',
+      quality: Math.min(99, Math.floor((singer.stats.voice + singer.stats.flow) / 2) + 15),
+      producer: 'Estudio Profesional',
+      featuredArtists: [targetArtist.name],
+      streamsTotal: initialStreams,
+      streamsWeekly: Math.floor(initialStreams * 0.4),
+      releaseWeek: singer.careerWeek,
+      releaseYear: singer.careerYear,
+      isSingle: !targetAlbum,
+      albumId: targetAlbum ? targetAlbum.id : undefined,
+      coverColor: 'from-fuchsia-600 via-purple-700 to-indigo-900',
+      certification: initialStreams >= 1000000 ? 'Platino' : 'Oro'
+    };
+
+    if (targetAlbum) {
+      setAlbums(prev => prev.map(a => a.id === targetAlbum.id ? { ...a, tracklist: [...a.tracklist, collabSong] } : a));
+    } else {
+      setDiscography(prev => [collabSong, ...prev]);
+    }
+
+    const fansGained = Math.floor(targetArtist.followers * 0.04) + 15000;
+    const repGained = perm.relationType === 'mentor_small' ? 8 : (perm.relationType === 'unlocked_famous' ? 12 : 6);
+
+    setSinger(prev => prev ? {
+      ...prev,
+      contactedArtistIds: Array.from(new Set([...(prev.contactedArtistIds || []), targetArtist.id])),
+      stats: {
+        ...prev.stats,
+        energy: prev.stats.energy - 15,
+        money: prev.stats.money - studioCost,
+        fans: prev.stats.fans + fansGained,
+        reputation: Math.min(100, prev.stats.reputation + repGained)
+      }
+    } : null);
+
+    const newsCollab: NewsArticle = {
+      id: 'news_collab_out_' + Date.now(),
+      headline: `🤝 ¡NUEVO JUNTE! ${singer.artistName} colabora con ${targetArtist.name} en "${collabSong.title}"`,
+      source: 'Mundo Urbano',
+      snippet: perm.relationType === 'mentor_small'
+        ? `${singer.artistName} apadrina a la joven promesa ${targetArtist.name} en una colaboración muy aplaudida por la crítica.`
+        : `Los artistas unen fuerzas en un junte estelar que ya escala posiciones en los charts.`,
+      timeAgo: `Semana ${singer.careerWeek}`,
+      category: 'colaboracion',
+      sentiment: 'positive'
+    };
+    setNews(prev => [newsCollab, ...prev]);
+
+    return { 
+      success: true, 
+      message: `¡Colaboración con ${targetArtist.name} grabada y publicada! (+${fansGained.toLocaleString()} oyentes, +${repGained} reputación)` 
+    };
+  };
+
   // Official Song Remix Creator
   const createSongRemix = (originalSong: Song, guestArtistName: string) => {
     if (!singer) return;
@@ -941,10 +1034,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // ⚡ PROPOSAL 1: BZRP Music Session (strictly ONE in career - Emergent Popup)
-    // hasHit: at least one song that has truly "exploded" (500K+ streams or top-20 chart)
-    const hasHit = discography.some(s => s.streamsTotal >= 500000 || (s.currentChartPosition || 99) <= 20);
+    // Rule: Debes ser emergente, leyenda o el artista del momento
+    const bzrpCheck = checkBzrpEligibility(singer, discography, globalCharts, countryCharts);
     const hasHadBzrp = singer.bzrpSessionCompleted || inbox.some(m => m.specialType === 'bzrp');
-    if (discography.length >= 5 && hasHit && !hasHadBzrp && (singer.stats.reputation >= 50 || singer.stats.fans >= 300000)) {
+    if (bzrpCheck.eligible && !hasHadBzrp) {
       if (Math.random() > 0.35) {
         const bzrpProposal: CollaborationProposal = {
           id: 'dm_bzrp_' + Date.now(),
@@ -968,9 +1061,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // ⚡ PROPOSAL 2: Ovy On The Drums "W Sound" (strictly ONE in career - Emergent Popup)
+    // Rule: Debes ser top en tu país o internacionalmente
+    const wSoundCheck = checkCrossoverOrWSoundEligibility(singer, discography, globalCharts, countryCharts);
     const hasHadWsound = singer.ovyWSoundCompleted || inbox.some(m => m.specialType === 'w_sound');
-    if (discography.length >= 5 && hasHit && !hasHadWsound && (singer.stats.reputation >= 45 || singer.stats.fans >= 220000)) {
-      if (Math.random() > 0.4) {
+    if (wSoundCheck.eligible && !hasHadWsound) {
+      if (Math.random() > 0.38) {
         const ovyProposal: CollaborationProposal = {
           id: 'dm_ovy_' + Date.now(),
           fromArtist: FAMOUS_PRODUCERS[2], // Ovy On The Drums
@@ -993,8 +1088,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // ⚡ PROPOSAL 3: Big One "Crossover #[número]" (strictly ONE in career - Emergent Popup)
+    // Rule: Debes ser top en tu país o internacionalmente
+    const crossoverCheck = checkCrossoverOrWSoundEligibility(singer, discography, globalCharts, countryCharts);
     const hasHadCrossover = singer.bigOneCrossoverCompleted || inbox.some(m => m.specialType === 'crossover');
-    if (discography.length >= 5 && hasHit && !hasHadCrossover && (singer.stats.reputation >= 45 || singer.stats.fans >= 220000)) {
+    if (crossoverCheck.eligible && !hasHadCrossover) {
       if (Math.random() > 0.38) {
         const partners = ['Tiago PZK', 'FMK', 'Ke Personajes', 'Luck Ra', 'Callejero Fino'];
         const partner = partners[Math.floor(Math.random() * partners.length)];
@@ -1150,46 +1247,70 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // 🎤 REALISTIC ARTIST COLLABORATIONS (Gated by having released music + Fame Tier + Remixes)
-    if (discography.length >= 5 && hasHit && Math.random() > 0.55 && singer.stats.fans >= 25000) {
-      // 1. Strict fame tier filtering
-      let eligibleArtists: typeof FAMOUS_ARTISTS = [];
-      if (singer.stats.fans < 150000) {
-        eligibleArtists = FAMOUS_ARTISTS.filter(a => a.fameTier === 'Emergente');
-      } else if (singer.stats.fans < 600000) {
-        eligibleArtists = FAMOUS_ARTISTS.filter(a => a.fameTier === 'Famoso' || a.fameTier === 'Emergente');
+    // 🎤 REALISTIC ARTIST COLLABORATIONS (Gated by popularity rules)
+    const playerTier = getPlayerFameTier(singer, discography);
+    const hasTraction = discography.some(s => s.streamsTotal >= 35000) || singer.stats.fans >= 12000;
+    const hasHitSong = discography.some(s => s.streamsTotal >= 500000 || (s.currentChartPosition || 99) <= 20);
+    const hasBomba = discography.some(s => s.streamsTotal >= 1200000 || (s.currentChartPosition || 99) <= 10);
+
+    if (hasTraction && Math.random() > 0.50) {
+      let candidateArtists: typeof FAMOUS_ARTISTS = [];
+      let isBigArtistReachingOutToSmall = false;
+
+      if (playerTier === 'Promesa' || playerTier === 'Emergente') {
+        // Artistas de su misma popularidad aproximada (Promesas / Emergentes)
+        const peerArtists = FAMOUS_ARTISTS.filter(a => a.fameTier === 'Promesa' || a.fameTier === 'Emergente');
+
+        // Si además sacó una BOMBA: artistas más grandes quieren sacar un feat a su nombre o un remix
+        if ((hasHitSong || hasBomba) && Math.random() > 0.45) {
+          const bigArtists = FAMOUS_ARTISTS.filter(a => 
+            a.fameTier === 'Famoso' || (hasBomba && (a.fameTier === 'Superestrella' || a.fameTier === 'Leyenda'))
+          );
+          if (bigArtists.length > 0) {
+            candidateArtists = bigArtists;
+            isBigArtistReachingOutToSmall = true;
+          } else {
+            candidateArtists = peerArtists;
+          }
+        } else {
+          candidateArtists = peerArtists;
+        }
       } else {
-        eligibleArtists = FAMOUS_ARTISTS;
+        // Player is Famoso / Superestrella / Leyenda
+        if (Math.random() > 0.35) {
+          candidateArtists = FAMOUS_ARTISTS.filter(a => a.fameTier === 'Famoso' || a.fameTier === 'Superestrella' || a.fameTier === 'Leyenda');
+        } else {
+          // Artistas más pequeños que buscan una oportunidad / mentor
+          candidateArtists = FAMOUS_ARTISTS.filter(a => a.fameTier === 'Promesa' || a.fameTier === 'Emergente');
+        }
       }
 
-      if (eligibleArtists.length > 0) {
-        const primaryArtist = eligibleArtists[Math.floor(Math.random() * eligibleArtists.length)];
+      if (candidateArtists.length > 0) {
+        const primaryArtist = candidateArtists[Math.floor(Math.random() * candidateArtists.length)];
         
-        // 2. Check if this is a REMIX offer of one of player's hits
-        const eligibleHits = discography.filter(s => s.streamsTotal >= 30000 && !s.isRemix);
-        const isRemixOffer = eligibleHits.length > 0 && Math.random() > 0.55;
+        // Check for REMIX offer:
+        const eligibleHits = discography.filter(s => s.streamsTotal >= 100000 && !s.isRemix);
+        const isRemixOffer = (isBigArtistReachingOutToSmall || Math.random() > 0.55) && eligibleHits.length > 0;
         const targetSong = isRemixOffer 
           ? eligibleHits[Math.floor(Math.random() * eligibleHits.length)]
           : null;
 
         const songTitle = isRemixOffer && targetSong
           ? targetSong.title
-          : ['Noche en Candela', 'Perreo Espacial', 'Eclipse Lunar', 'Diamantes en el Club', 'De Vuelta a Casa'][Math.floor(Math.random() * 5)];
+          : ['Noche en Candela', 'Perreo Espacial', 'Eclipse Lunar', 'Diamantes en el Club', 'De Vuelta a Casa', 'Bajo la Luna', 'Flow Exclusivo'][Math.floor(Math.random() * 7)];
 
-        // 3. Check if multiple artists junte (e.g. 2 artists writing to you)
         let multipleArtists: string[] | undefined = undefined;
-        if (singer.stats.fans >= 250000 && Math.random() > 0.7) {
-          const secondArtist = eligibleArtists.find(a => a.id !== primaryArtist.id);
-          if (secondArtist) {
-            multipleArtists = [secondArtist.name];
-          }
+        if (singer.stats.fans >= 250000 && Math.random() > 0.75) {
+          const secondArtist = candidateArtists.find(a => a.id !== primaryArtist.id);
+          if (secondArtist) multipleArtists = [secondArtist.name];
         }
 
-        // 4. Calculate realistic upfront advance and message
-        const advancePayment = Math.floor(primaryArtist.followers * 0.0015) + (isRemixOffer ? 25000 : 15000);
-        const authenticMessage = getArtistDialogue(primaryArtist, singer.artistName, songTitle, isRemixOffer);
+        const advancePayment = Math.floor(primaryArtist.followers * 0.0015) + (isRemixOffer ? 30000 : 15000);
+        const authenticMessage = isBigArtistReachingOutToSmall && !isRemixOffer
+          ? `¡Qué onda ${singer.artistName}! Escuché tu bomba en la radio y tienes un flow brutal. Estoy armando mi nuevo disco y quiero que te montes como feat en un tema mío. Cobras un buen adelanto y rompemos juntos. ¿Le damos?`
+          : getArtistDialogue(primaryArtist, singer.artistName, songTitle, isRemixOffer);
 
-        const isImportant = primaryArtist.fameTier === 'Superestrella' || primaryArtist.fameTier === 'Leyenda' || isRemixOffer || !!multipleArtists;
+        const isImportant = primaryArtist.fameTier === 'Superestrella' || primaryArtist.fameTier === 'Leyenda' || isRemixOffer || isBigArtistReachingOutToSmall;
 
         const proposal: CollaborationProposal = {
           id: 'prop_' + Date.now(),
@@ -1211,7 +1332,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setInbox(prev => [proposal, ...prev]);
 
-        // If important superstar proposal or remix, trigger emergent popup!
+        // Record in contactedArtistIds so player has this artist unlocked in directory
+        setSinger(prev => {
+          if (!prev) return null;
+          const current = prev.contactedArtistIds || [];
+          if (!current.includes(primaryArtist.id)) {
+            return { ...prev, contactedArtistIds: [...current, primaryArtist.id] };
+          }
+          return prev;
+        });
+
         if (isImportant) {
           setActiveCollabOffer(proposal);
         }
@@ -1328,6 +1458,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activeCollabOffer,
       setActiveCollabOffer,
       respondToCollaboration,
+      proposeCollaboration,
       createSongRemix,
       releaseSingle,
       scheduleSongRelease,

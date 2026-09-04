@@ -165,6 +165,38 @@ export const FAMOUS_ARTISTS: NPCArtist[] = [
     chemistryRequired: 22,
     avatar: '🌴',
     origin: 'Colombia'
+  },
+
+  // PROMESAS QUE EMPIEZAN A SONAR (<25k fans)
+  {
+    id: 'dani-boy',
+    name: 'Dani Boy',
+    genre: 'Trap / Hip-Hop',
+    fameTier: 'Promesa',
+    followers: 12000,
+    chemistryRequired: 10,
+    avatar: '🛹',
+    origin: 'España'
+  },
+  {
+    id: 'luana-v',
+    name: 'Luana V',
+    genre: 'R&B / Neo-Soul',
+    fameTier: 'Promesa',
+    followers: 18000,
+    chemistryRequired: 12,
+    avatar: '🌸',
+    origin: 'Argentina'
+  },
+  {
+    id: 'neo-pol',
+    name: 'Neo Pol',
+    genre: 'Urbano / Reggaeton',
+    fameTier: 'Promesa',
+    followers: 21000,
+    chemistryRequired: 14,
+    avatar: '🔥',
+    origin: 'Colombia'
   }
 ];
 
