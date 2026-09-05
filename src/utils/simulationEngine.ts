@@ -53,8 +53,8 @@ export const calculateSongSuccess = (
   let baseOrganicStreams = 0;
   if (singer.stats.fans < 25000) {
     // Tier 1: Underground (1,200 - 8,500 streams)
-    const fanTurnout = Math.floor(singer.stats.fans * (0.35 + Math.random() * 0.25));
-    const discoveryStreams = Math.floor(qualityScore * (15 + Math.random() * 20)) + (songDraft.budget * 2);
+    const fanTurnout = Math.floor(singer.stats.fans * (0.18 + Math.random() * 0.18));
+    const discoveryStreams = Math.floor(qualityScore * (8 + Math.random() * 14)) + Math.floor(songDraft.budget * 0.8);
     baseOrganicStreams = Math.max(800, fanTurnout + discoveryStreams);
   } else if (singer.stats.fans < 150000) {
     // Tier 2: Emergente (25,000 - 180,000 streams)

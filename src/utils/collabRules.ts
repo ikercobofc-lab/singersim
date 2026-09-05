@@ -7,11 +7,12 @@ export function getPlayerFameTier(singer: Singer, discography: Song[]): PlayerFa
   const rep = singer.stats.reputation;
   const maxStreams = discography.length > 0 ? Math.max(...discography.map(s => s.streamsTotal)) : 0;
 
-  if (fans >= 2500000 || rep >= 85) return 'Leyenda';
-  if (fans >= 700000 || rep >= 75) return 'Superestrella';
-  if (fans >= 250000 || rep >= 55) return 'Famoso';
-  if (fans >= 50000 || maxStreams >= 500000 || rep >= 35) return 'Emergente';
-  if (fans >= 12000 || maxStreams >= 50000 || rep >= 20) return 'Promesa';
+  const catalogSize = discography.length;
+  if (catalogSize >= 12 && fans >= 5000000 && rep >= 90 && maxStreams >= 10000000) return 'Leyenda';
+  if (catalogSize >= 8 && fans >= 1500000 && rep >= 78 && maxStreams >= 3000000) return 'Superestrella';
+  if (catalogSize >= 5 && fans >= 500000 && rep >= 58 && maxStreams >= 1000000) return 'Famoso';
+  if (catalogSize >= 3 && (fans >= 75000 || maxStreams >= 750000) && rep >= 35) return 'Emergente';
+  if (catalogSize >= 1 && (fans >= 15000 || maxStreams >= 75000) && rep >= 20) return 'Promesa';
   return 'Underground';
 }
 
@@ -48,7 +49,7 @@ export function checkBzrpEligibility(
   }
 
   // 2. ¿Es leyenda?
-  const isLeyenda = singer.stats.fans >= 1500000 || singer.stats.reputation >= 80;
+  const isLeyenda = singer.stats.fans >= 5000000 && singer.stats.reputation >= 90 && discography.length >= 12;
   if (isLeyenda) {
     return { eligible: true, reason: 'Estatus de Leyenda: trayectoria respetada mundialmente.', category: 'leyenda' };
   }
@@ -85,8 +86,8 @@ export function checkCrossoverOrWSoundEligibility(
                        (singer.stats.fans >= 350000 && singer.stats.reputation >= 50);
 
   // Top internacionalmente: cancion en el Top 20 Global o > 900.000 fans
-  const isTopGlobal = globalCharts.some(e => e.isPlayerSong && e.rank <= 20) ||
-                      (singer.stats.fans >= 900000 && singer.stats.reputation >= 65);
+  const isTopGlobal = globalCharts.some(e => e.isPlayerSong && e.rank <= 10) ||
+                      (singer.stats.fans >= 1500000 && singer.stats.reputation >= 70 && discography.length >= 6);
 
   if (isTopCountry || isTopGlobal) {
     return {

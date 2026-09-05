@@ -52,6 +52,7 @@ interface GameContextType {
   createAlbum: (title: string, genre: Singer['genre'], projectType?: 'album' | 'ep') => void;
   addTrackToAlbum: (albumId: string, trackDraft: any) => void;
   releaseAlbum: (albumId: string, strategy: any, budget: number) => void;
+  scheduleAlbumRelease: (albumId: string, strategy: any, budget: number, releaseWeek: number, releaseTime: string) => void;
   bzrpEligible: boolean;
   isBzrpOpen: boolean;
   setIsBzrpOpen: (open: boolean) => void;
@@ -431,6 +432,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sentiment: evaluation.criticScore > 75 ? 'positive' : 'neutral'
     };
     setNews(prev => [albumNews, ...prev]);
+  };
+
+  const scheduleAlbumRelease = (albumId: string, strategy: any, budget: number, releaseWeek: number, releaseTime: string) => {
+    if (!singer) return;
+    const targetAlbum = albums.find(a => a.id === albumId);
+    if (!targetAlbum || targetAlbum.tracklist.length === 0 || releaseWeek <= singer.careerWeek) return;
+    setAlbums(prev => prev.map(album => album.id === albumId ? {
+      ...album,
+      status: 'scheduled',
+      scheduledReleaseWeek: releaseWeek,
+      scheduledTime: releaseTime,
+      marketingBudget: budget,
+      marketingStrategy: strategy
+    } : album));
+    setNews(prev => [{
+      id: 'news_album_schedule_' + Date.now(),
+      headline: `${singer.artistName} anuncia el lanzamiento de "${targetAlbum.title}"`,
+      source: 'Prensa Musical',
+      snippet: `El ${targetAlbum.projectType === 'ep' ? 'EP' : 'álbum'} llegará en la semana ${releaseWeek}, a las ${releaseTime}.`,
+      timeAgo: `Semana ${singer.careerWeek}`,
+      category: 'rumores',
+      sentiment: 'positive'
+    }, ...prev]);
   };
 
   // Legendary BZRP Session Trigger
@@ -927,6 +951,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextWeek = singer.careerWeek + 1;
     const isNewYear = nextWeek % 52 === 0;
     const currentYear = isNewYear ? singer.careerYear + 1 : singer.careerYear;
+
+    const scheduledAlbums = albums.filter(album => album.status === 'scheduled' && (album.scheduledReleaseWeek || 0) <= nextWeek);
+    scheduledAlbums.forEach(album => releaseAlbum(album.id, album.marketingStrategy || 'Tiktok viral', album.marketingBudget));
 
     // Check if any scheduled songs should be released this week
     const readyToRelease = scheduledSongs.filter(s => (s.scheduledWeek || 0) <= nextWeek);
@@ -1425,6 +1452,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createAlbum,
       addTrackToAlbum,
       releaseAlbum,
+      scheduleAlbumRelease,
       bzrpEligible,
       isBzrpOpen,
       setIsBzrpOpen,

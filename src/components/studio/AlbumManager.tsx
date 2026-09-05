@@ -18,7 +18,7 @@ import {
 import confetti from 'canvas-confetti';
 
 export const AlbumManager: React.FC = () => {
-  const { singer, albums, discography, scheduledSongs, createAlbum, addTrackToAlbum, releaseAlbum } = useGame();
+  const { singer, albums, discography, scheduledSongs, createAlbum, addTrackToAlbum, releaseAlbum, scheduleAlbumRelease } = useGame();
 
   const [newAlbumTitle, setNewAlbumTitle] = useState('');
   const [newAlbumGenre, setNewAlbumGenre] = useState<MusicGenre>(singer?.genre || 'Urbano / Reggaeton');
@@ -28,6 +28,8 @@ export const AlbumManager: React.FC = () => {
   const [selectedStrategy, setSelectedStrategy] = useState<'Tiktok viral' | 'Entrevista exclusiva' | 'Vallas y publicidad' | 'Polémica calculada'>('Tiktok viral');
   const [albumBudget, setAlbumBudget] = useState(3000);
   const [selectedExistingSong, setSelectedExistingSong] = useState<Record<string, string>>({});
+  const [albumReleaseWeek, setAlbumReleaseWeek] = useState<Record<string, number>>({});
+  const [albumReleaseTime, setAlbumReleaseTime] = useState<Record<string, string>>({});
 
   // Social scheduler modal state
   const [schedulerTargetAlbum, setSchedulerTargetAlbum] = useState<Album | null>(null);
@@ -70,7 +72,7 @@ export const AlbumManager: React.FC = () => {
     });
   };
 
-  const inProgressAlbums = albums.filter(a => a.status === 'recording');
+  const inProgressAlbums = albums.filter(a => a.status === 'recording' || a.status === 'scheduled');
   const releasedAlbums = albums.filter(a => a.status === 'released');
 
   return (
@@ -425,7 +427,40 @@ export const AlbumManager: React.FC = () => {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-white/5 pt-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Programar semana</label>
+                        <input
+                          type="number"
+                          min={singer.careerWeek + 1}
+                          value={albumReleaseWeek[album.id] || singer.careerWeek + 1}
+                          onChange={(e) => setAlbumReleaseWeek(prev => ({ ...prev, [album.id]: Number(e.target.value) }))}
+                          className="w-full px-3 py-2 rounded-xl bg-[#20202c] border border-white/10 text-white text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Hora de estreno</label>
+                        <select
+                          value={albumReleaseTime[album.id] || 'Viernes 00:00'}
+                          onChange={(e) => setAlbumReleaseTime(prev => ({ ...prev, [album.id]: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-xl bg-[#20202c] border border-white/10 text-white text-xs"
+                        >
+                          <option>Viernes 00:00</option>
+                          <option>Viernes 12:00</option>
+                          <option>Domingo 18:00</option>
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => scheduleAlbumRelease(album.id, selectedStrategy, albumBudget, albumReleaseWeek[album.id] || singer.careerWeek + 1, albumReleaseTime[album.id] || 'Viernes 00:00')}
+                        className="self-end py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/30 text-xs font-black"
+                      >
+                        Programar lanzamiento
+                      </button>
+                    </div>
+
                     <button
+                      type="button"
                       onClick={() => handleLaunchAlbum(album.id)}
                       className={`w-full py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-[0.99] ${
                         isEp
