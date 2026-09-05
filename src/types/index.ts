@@ -123,7 +123,8 @@ export interface CollaborationProposal {
   fromArtist: NPCArtist;
   songTitleProposed: string;
   genre: MusicGenre;
-  role: 'feat' | 'producer';
+  role: 'feat' | 'producer' | 'multi';
+  participantRoles?: Record<string, 'feat' | 'producer'>;
   splitOffer: number; // % royalties offered to player e.g. 50
   budgetOffered: number;
   advancePayment: number; // Cash advance if it's the collaborator's track

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { formatCurrency } from '../../utils/formatters';
-import { FAMOUS_ARTISTS } from '../../data/artists';
+import { FAMOUS_ARTISTS, FAMOUS_PRODUCERS } from '../../data/artists';
 import { 
   getPlayerFameTier, 
   checkBzrpEligibility, 
@@ -54,6 +54,7 @@ export const InboxModal: React.FC = () => {
   const [proposeFormat, setProposeFormat] = useState<'single' | 'album' | 'remix'>('single');
   const [targetAlbumId, setTargetAlbumId] = useState<string>('');
   const [originalSongId, setOriginalSongId] = useState<string>('');
+  const [proposalRole, setProposalRole] = useState<'feat' | 'producer' | 'multi'>('feat');
 
   if (!singer) return null;
 
@@ -108,7 +109,7 @@ export const InboxModal: React.FC = () => {
       return;
     }
 
-    const res = proposeCollaboration(artistIdsToContact, proposeFormat, albumIdToUse, originalSongId || undefined);
+    const res = proposeCollaboration(artistIdsToContact, proposeFormat, albumIdToUse, originalSongId || undefined, proposalRole);
     alert(res.message);
     if (res.success) {
       setTargetArtistForModal(null);
@@ -672,9 +673,26 @@ export const InboxModal: React.FC = () => {
   className="min-h-24 w-full rounded-xl bg-white/5 border border-white/10 text-xs text-white p-2"
   >
   {filteredArtists.filter(artist => evaluateCollabPermission(singer, discography, artist, inbox).canPropose).map(artist => (
-    <option key={artist.id} value={artist.id}>{artist.name}</option>
+    <option key={artist.id} value={artist.id}>{artist.name} · cantante</option>
+  ))}
+  {FAMOUS_PRODUCERS.map(producer => (
+    <option key={producer.id} value={producer.id}>{producer.name} · productor</option>
   ))}
   </select>
+  </div>
+
+  <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
+    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Tipo de junte</label>
+    <select
+      value={proposalRole}
+      onChange={(event) => setProposalRole(event.target.value as 'feat' | 'producer' | 'multi')}
+      className="w-full rounded-xl bg-white/5 border border-white/10 text-xs text-white p-2"
+    >
+      <option value="feat">Uno o más cantantes (FT)</option>
+      <option value="producer">Productor para el beat</option>
+      <option value="multi">Cantantes y productor en el mismo remix</option>
+    </select>
+    <p className="text-[11px] text-slate-400">Cada participante recibirá su propia propuesta y podrá aceptar o rechazar por separado.</p>
   </div>
 
   {/* Format Picker */}

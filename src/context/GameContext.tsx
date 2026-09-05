@@ -45,7 +45,7 @@ interface GameContextType {
   activeCollabOffer: CollaborationProposal | null;
   setActiveCollabOffer: (offer: CollaborationProposal | null) => void;
   respondToCollaboration: (proposalId: string, accept: boolean, ownership?: 'player' | 'collaborator', targetAlbumId?: string) => void;
-  proposeCollaboration: (artistId: string | string[], format: 'single' | 'album' | 'remix', albumId?: string, originalSongId?: string) => { success: boolean; message: string };
+  proposeCollaboration: (artistId: string | string[], format: 'single' | 'album' | 'remix', albumId?: string, originalSongId?: string, role?: 'feat' | 'producer' | 'multi') => { success: boolean; message: string };
   createSongRemix: (originalSong: Song, guestArtistName: string) => void;
   releaseSingle: (songDraft: any) => any;
   scheduleSongRelease: (songDraft: any) => void;
@@ -803,11 +803,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     artistId: string | string[],
     format: 'single' | 'album' | 'remix',
     albumId?: string,
-    originalSongId?: string
+    originalSongId?: string,
+    proposalRole: 'feat' | 'producer' | 'multi' = 'feat'
   ): { success: boolean; message: string } => {
     if (!singer) return { success: false, message: 'No hay cantante activo.' };
     const artistIds = Array.isArray(artistId) ? artistId : [artistId];
-    const targets = artistIds.map(id => FAMOUS_ARTISTS.find(a => a.id === id)).filter(Boolean) as NPCArtist[];
+    const targets = artistIds.map(id =>
+      FAMOUS_ARTISTS.find(a => a.id === id) || FAMOUS_PRODUCERS.find(p => p.id === id)
+    ).filter(Boolean) as NPCArtist[];
     if (!targets.length) return { success: false, message: 'No se encontraron artistas seleccionados.' };
     if (singer.stats.energy < 15 || singer.stats.money < 6000) {
       return { success: false, message: 'Necesitas 15 de energía y 6.000 € para enviar una propuesta.' };
@@ -823,7 +826,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       fromArtist: { ...target, name: singer.artistName, id: singer.id },
       songTitleProposed: originalSong ? `${originalSong.title} (Remix)` : `${singer.artistName} - Nueva colaboración`,
       genre: target.genre,
-      role: 'feat',
+      role: proposalRole,
+      participantRoles: Object.fromEntries(targets.map(target => [target.id, target.isProducer ? 'producer' : 'feat'])) as Record<string, 'feat' | 'producer'>,
       splitOffer: 50,
       budgetOffered: 6000,
       advancePayment: 0,
