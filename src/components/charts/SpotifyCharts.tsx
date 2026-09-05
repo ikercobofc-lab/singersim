@@ -26,11 +26,8 @@ export const SpotifyCharts: React.FC = () => {
 
     // Merge in player songs that are currently charted
     const chartingPlayerSongs = discography.filter(s => (s.currentChartPosition || 0) > 0);
-    if (chartingPlayerSongs.length === 0) {
-      return baseDynamic;
-    }
-
     const merged = [...baseDynamic];
+
     chartingPlayerSongs.forEach(song => {
       const pos = (song.currentChartPosition || 1) - 1;
       if (pos >= 0 && pos < merged.length) {
@@ -51,7 +48,9 @@ export const SpotifyCharts: React.FC = () => {
       }
     });
 
-    return [...merged]
+    // Las listas siempre se presentan de mayor a menor número de streams,
+    // incluso cuando no hay canciones del jugador que fusionar.
+    return merged
       .sort((a, b) => b.streams - a.streams)
       .slice(0, 20)
       .map((item, idx) => ({
