@@ -70,15 +70,6 @@ export const HomeDashboard: React.FC = () => {
 
           {/* Quick Action Buttons */}
           <div className="flex flex-wrap gap-2.5">
-            {bzrpEligible && (
-              <button
-                onClick={() => setIsBzrpOpen(true)}
-                className="animate-bounce-short px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 text-black font-black text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/30 transition"
-              >
-                <Zap className="w-4 h-4 fill-black" />
-                <span>GRABAR BZRP SESSION</span>
-              </button>
-            )}
 
             <button
               onClick={() => setActiveTab('studio')}

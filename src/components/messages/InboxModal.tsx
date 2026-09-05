@@ -197,59 +197,14 @@ export const InboxModal: React.FC = () => {
         </div>
       </div>
 
-      {/* Popularity & Milestones Quick Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Player Status Card */}
-        <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Tu Estatus de Popularidad</p>
-            <p className="text-base font-black text-white">{playerTier}</p>
-            <p className="text-[11px] text-slate-400">{singer.stats.fans.toLocaleString()} oyentes • {discography.length} canciones</p>
-          </div>
-          <span className="text-2xl">🔥</span>
+      {/* Player Status */}
+      <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Tu Estatus de Popularidad</p>
+          <p className="text-base font-black text-white">{playerTier}</p>
+          <p className="text-[11px] text-slate-400">{singer.stats.fans.toLocaleString()} oyentes • {discography.length} canciones</p>
         </div>
-
-        {/* BZRP Session Status Card */}
-        <div className={`p-3.5 rounded-2xl border transition ${
-          bzrpStatus.eligible 
-            ? 'bg-cyan-500/10 border-cyan-400/40 text-cyan-300'
-            : singer.bzrpSessionCompleted
-            ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-300'
-            : 'bg-white/5 border-white/10 text-slate-400'
-        }`}>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold tracking-wider">BZRP Music Session</span>
-            <Radio className="w-3.5 h-3.5" />
-          </div>
-          <p className="text-xs font-bold text-white mt-1">
-            {singer.bzrpSessionCompleted 
-              ? '✓ Session Realizada' 
-              : bzrpStatus.eligible 
-              ? '📩 Puede llegar una invitación de Bizarrap' 
-              : 'A la espera de que Bizarrap te descubra'}
-          </p>
-          <p className="text-[10px] opacity-80 truncate">{bzrpStatus.reason}</p>
-        </div>
-
-        {/* Crossover / W Sound Status Card */}
-        <div className={`p-3.5 rounded-2xl border transition ${
-          crossoverStatus.eligible 
-            ? 'bg-amber-500/10 border-amber-400/40 text-amber-300'
-            : (singer.ovyWSoundCompleted && singer.bigOneCrossoverCompleted)
-            ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-300'
-            : 'bg-white/5 border-white/10 text-slate-400'
-        }`}>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold tracking-wider">Crossover & W Sound</span>
-            <Sparkles className="w-3.5 h-3.5" />
-          </div>
-          <p className="text-xs font-bold text-white mt-1">
-            {crossoverStatus.eligible 
-              ? '🌟 ¡Top Nacional / Global Conquistado!' 
-              : 'Requiere Top en tu País o Global'}
-          </p>
-          <p className="text-[10px] opacity-80 truncate">{crossoverStatus.reason}</p>
-        </div>
+        <span className="text-2xl">🔥</span>
       </div>
 
       {/* TAB 1: BANDEJA DE DMs */}

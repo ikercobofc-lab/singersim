@@ -18,7 +18,7 @@ import {
 import confetti from 'canvas-confetti';
 
 export const AlbumManager: React.FC = () => {
-  const { singer, albums, scheduledSongs, createAlbum, releaseAlbum } = useGame();
+  const { singer, albums, discography, scheduledSongs, createAlbum, addTrackToAlbum, releaseAlbum } = useGame();
 
   const [newAlbumTitle, setNewAlbumTitle] = useState('');
   const [newAlbumGenre, setNewAlbumGenre] = useState<MusicGenre>(singer?.genre || 'Urbano / Reggaeton');
@@ -27,6 +27,7 @@ export const AlbumManager: React.FC = () => {
   const [activeRecordingAlbumId, setActiveRecordingAlbumId] = useState<string | null>(null);
   const [selectedStrategy, setSelectedStrategy] = useState<'Tiktok viral' | 'Entrevista exclusiva' | 'Vallas y publicidad' | 'Polémica calculada'>('Tiktok viral');
   const [albumBudget, setAlbumBudget] = useState(3000);
+  const [selectedExistingSong, setSelectedExistingSong] = useState<Record<string, string>>({});
 
   // Social scheduler modal state
   const [schedulerTargetAlbum, setSchedulerTargetAlbum] = useState<Album | null>(null);
@@ -357,6 +358,37 @@ export const AlbumManager: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {discography.length > 0 && (
+                  <div className="flex flex-col sm:flex-row sm:items-end gap-2 p-3 rounded-xl bg-cyan-500/5 border border-cyan-400/20">
+                    <div className="flex-1">
+                      <label className="block text-[10px] font-bold text-cyan-300 uppercase tracking-wider mb-1">Añadir canción ya creada</label>
+                      <select
+                        value={selectedExistingSong[album.id] || ''}
+                        onChange={(e) => setSelectedExistingSong(prev => ({ ...prev, [album.id]: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg bg-[#20202c] border border-white/10 text-white text-xs"
+                      >
+                        <option value="">Selecciona una canción publicada</option>
+                        {discography.filter(song => !album.tracklist.some(track => track.title === song.title)).map(song => (
+                          <option key={song.id} value={song.id}>{song.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!selectedExistingSong[album.id]}
+                      onClick={() => {
+                        const song = discography.find(item => item.id === selectedExistingSong[album.id]);
+                        if (!song) return;
+                        addTrackToAlbum(album.id, song);
+                        setSelectedExistingSong(prev => ({ ...prev, [album.id]: '' }));
+                      }}
+                      className="px-3 py-2 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Añadir al proyecto
+                    </button>
+                  </div>
+                )}
 
                 {/* Launch Settings & Campaign */}
                 {album.tracklist.length > 0 && (
