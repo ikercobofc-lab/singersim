@@ -39,6 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
   if (!singer) return null;
 
   const pendingDms = inbox.filter(m => m.status === 'pending').length;
+  const hasUnreadDms = pendingDms > 0;
 
   return (
     <header className="sticky top-0 z-40 bg-[#121216]/95 backdrop-blur-md border-b border-white/10 px-4 py-3">
@@ -211,8 +212,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
           >
             <Mail className="w-3.5 h-3.5" />
             <span>Mensajes DMs</span>
-            {pendingDms > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-extrabold animate-bounce">
+            {hasUnreadDms && (
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-extrabold animate-bounce" aria-label={`${pendingDms} mensajes pendientes`}>
                 {pendingDms}
               </span>
             )}

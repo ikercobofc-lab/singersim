@@ -50,8 +50,9 @@ export const InboxModal: React.FC = () => {
   
   // Modal for proposing collab to an artist
   const [targetArtistForModal, setTargetArtistForModal] = useState<NPCArtist | null>(null);
-  const [proposeFormat, setProposeFormat] = useState<'single' | 'album'>('single');
+  const [proposeFormat, setProposeFormat] = useState<'single' | 'album' | 'remix'>('single');
   const [targetAlbumId, setTargetAlbumId] = useState<string>('');
+  const [originalSongId, setOriginalSongId] = useState<string>('');
 
   if (!singer) return null;
 
@@ -93,14 +94,19 @@ export const InboxModal: React.FC = () => {
 
   const handleSendProposal = () => {
     if (!targetArtistForModal) return;
-    const albumIdToUse = proposeFormat === 'album' ? (targetAlbumId || inProgressAlbums[0]?.id) : undefined;
+    const albumIdToUse = (proposeFormat === 'album' || proposeFormat === 'remix') ? (targetAlbumId || inProgressAlbums[0]?.id) : undefined;
     
     if (proposeFormat === 'album' && !albumIdToUse) {
       alert('Debes tener un álbum en grabación en el Estudio para seleccionar esta opción.');
       return;
     }
 
-    const res = proposeCollaboration(targetArtistForModal.id, proposeFormat, albumIdToUse);
+    if (proposeFormat === 'remix' && !originalSongId) {
+      alert('Selecciona la canción que quieres convertir en remix.');
+      return;
+    }
+
+    const res = proposeCollaboration(targetArtistForModal.id, proposeFormat, albumIdToUse, originalSongId || undefined);
     alert(res.message);
     if (res.success) {
       setTargetArtistForModal(null);
@@ -700,7 +706,7 @@ export const InboxModal: React.FC = () => {
             {/* Format Picker */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">¿Dónde lanzar el tema?</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   onClick={() => setProposeFormat('single')}
                   className={`p-3 rounded-xl border text-left transition ${
@@ -711,6 +717,23 @@ export const InboxModal: React.FC = () => {
                 >
                   <p className="text-xs font-bold">Single Oficial</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">Sale directo a tu discografía</p>
+                </button>
+
+                <button
+                  onClick={() => setProposeFormat('remix')}
+                  disabled={discography.length === 0}
+                  className={`p-3 rounded-xl border text-left transition ${
+                    discography.length === 0
+                      ? 'opacity-40 cursor-not-allowed bg-white/5 border-white/5'
+                      : proposeFormat === 'remix'
+                      ? 'bg-cyan-600/20 border-cyan-500 text-white font-bold'
+                      : 'bg-white/5 border-white/10 text-slate-400'
+                  }`}
+                >
+                  <p className="text-xs font-bold">Remix de una canción</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {discography.length === 0 ? 'No tienes canciones publicadas' : 'Elige qué tema remezclar'}
+                  </p>
                 </button>
 
                 <button
@@ -731,7 +754,22 @@ export const InboxModal: React.FC = () => {
                 </button>
               </div>
 
-              {proposeFormat === 'album' && inProgressAlbums.length > 0 && (
+              {proposeFormat === 'remix' && discography.length > 0 && (
+                <div className="pt-2">
+                  <label className="text-[11px] text-slate-400 block mb-1">Seleccionar canción para el remix:</label>
+                  <select
+                    value={originalSongId || discography[0].id}
+                    onChange={(e) => setOriginalSongId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
+                  >
+                    {discography.map(song => (
+                      <option key={song.id} value={song.id}>{song.title} · {song.streamsTotal.toLocaleString()} streams</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {(proposeFormat === 'album' || proposeFormat === 'remix') && inProgressAlbums.length > 0 && (
                 <div className="pt-2">
                   <label className="text-[11px] text-slate-400 block mb-1">Seleccionar Álbum de destino:</label>
                   <select

@@ -51,10 +51,13 @@ export const SpotifyCharts: React.FC = () => {
       }
     });
 
-    return merged.slice(0, 20).map((item, idx) => ({
-      ...item,
-      rank: idx + 1
-    }));
+    return [...merged]
+      .sort((a, b) => b.streams - a.streams)
+      .slice(0, 20)
+      .map((item, idx) => ({
+        ...item,
+        rank: idx + 1
+      }));
   }, [activeChartType, selectedCountry, timeframe, singer?.careerWeek, discography, singer?.artistName]);
 
   const playerSongsInChart = discography.filter(s => (s.currentChartPosition || 0) > 0);

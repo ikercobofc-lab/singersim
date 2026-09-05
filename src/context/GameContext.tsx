@@ -44,7 +44,7 @@ interface GameContextType {
   activeCollabOffer: CollaborationProposal | null;
   setActiveCollabOffer: (offer: CollaborationProposal | null) => void;
   respondToCollaboration: (proposalId: string, accept: boolean, ownership?: 'player' | 'collaborator', targetAlbumId?: string) => void;
-  proposeCollaboration: (artistId: string, format: 'single' | 'album', albumId?: string) => { success: boolean; message: string };
+  proposeCollaboration: (artistId: string, format: 'single' | 'album' | 'remix', albumId?: string, originalSongId?: string) => { success: boolean; message: string };
   createSongRemix: (originalSong: Song, guestArtistName: string) => void;
   releaseSingle: (songDraft: any) => any;
   scheduleSongRelease: (songDraft: any) => void;
@@ -128,8 +128,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [selectedCountry]);
 
   // Check BZRP eligibility (Must be emergente, leyenda or artista del momento)
+  // BZRP no se desbloquea desde un menú: sus requisitos solo determinan si puede llegar una invitación.
   const bzrpEligible = !!(
-    singer && 
+    singer &&
+    !singer.bzrpSessionCompleted &&
     checkBzrpEligibility(singer, discography, globalCharts, countryCharts).eligible
   );
 
@@ -252,7 +254,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           country: 'Global'
         };
         newCharts.splice(res.chartPositionGlobal - 1, 0, playerEntry);
-        return newCharts.slice(0, 20).map((item, idx) => ({ ...item, rank: idx + 1 }));
+        return newCharts
+          .sort((a, b) => b.streams - a.streams)
+          .slice(0, 20)
+          .map((item, idx) => ({ ...item, rank: idx + 1 }));
       });
     }
 
@@ -770,9 +775,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Player-initiated Collaboration Proposal (Active Propose)
   const proposeCollaboration = (
-    artistId: string, 
-    format: 'single' | 'album', 
-    albumId?: string
+    artistId: string,
+    format: 'single' | 'album' | 'remix',
+    albumId?: string,
+    originalSongId?: string
   ): { success: boolean; message: string } => {
     if (!singer) return { success: false, message: 'No hay cantante activo.' };
     const targetArtist = FAMOUS_ARTISTS.find(a => a.id === artistId);
@@ -793,7 +799,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const targetAlbum = albumId ? albums.find(a => a.id === albumId) : undefined;
-    const songTitleProposed = `${targetArtist.name.split(' ')[0]} & ${singer.artistName} - Conexión`;
+    const originalSong = originalSongId ? discography.find(song => song.id === originalSongId) : undefined;
+    const songTitleProposed = originalSong
+      ? `${originalSong.title} (Remix)`
+      : `${targetArtist.name.split(' ')[0]} & ${singer.artistName} - Conexión`;
     const combinedFollowers = targetArtist.followers + singer.stats.fans;
     const initialStreams = Math.floor(combinedFollowers * 0.12) + 250000;
 
