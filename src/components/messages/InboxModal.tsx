@@ -143,7 +143,7 @@ export const InboxModal: React.FC = () => {
               </span>
             </h2>
             <p className="text-xs text-slate-400">
-              Gestiona propuestas recibidas, busca artistas en el directorio y colabora según tu nivel de popularidad.
+              Consulta tu status y gestiona las invitaciones que recibas en tus DMs.
             </p>
           </div>
         </div>
@@ -222,8 +222,8 @@ export const InboxModal: React.FC = () => {
             {singer.bzrpSessionCompleted 
               ? '✓ Session Realizada' 
               : bzrpStatus.eligible 
-              ? '⚡ ¡Elegible para Session!' 
-              : 'Requiere Emergente / Leyenda / Top'}
+              ? '📩 Puede llegar una invitación de Bizarrap' 
+              : 'A la espera de que Bizarrap te descubra'}
           </p>
           <p className="text-[10px] opacity-80 truncate">{bzrpStatus.reason}</p>
         </div>

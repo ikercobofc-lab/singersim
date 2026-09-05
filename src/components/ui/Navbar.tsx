@@ -30,8 +30,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
     inbox, 
     activeTab, 
     setActiveTab, 
-    bzrpEligible, 
-    setIsBzrpOpen,
     setEurovisionModalOpen
   } = useGame();
   const { currentUser, isFirebaseLive } = useAuth();
@@ -115,18 +113,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
 
         {/* Action Controls & FastForward */}
         <div className="hidden md:flex items-center gap-2">
-          {/* BZRP Unlock Button if ready */}
-          {bzrpEligible && (
-            <button
-              onClick={() => setIsBzrpOpen(true)}
-              className="animate-pulse-slow flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-extrabold text-xs shadow-lg shadow-cyan-500/30 hover:scale-105 transition"
-            >
-              <Sparkles className="w-3.5 h-3.5 fill-black" />
-              <span>BZRP SESSION</span>
-            </button>
-          )}
-
-
           {/* Advance Time Button */}
           <button
             onClick={advanceTime}
