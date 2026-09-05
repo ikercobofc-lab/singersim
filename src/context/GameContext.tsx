@@ -9,7 +9,8 @@ import {
   DecisionEvent, 
   Award,
   EurovisionResult,
-  RumorItem
+  RumorItem,
+  NPCArtist
 } from '../types';
 import { INITIAL_GLOBAL_CHARTS, generateCountryCharts } from '../data/initialCharts';
 import { FAMOUS_ARTISTS, FAMOUS_PRODUCERS, getArtistDialogue } from '../data/artists';
@@ -44,7 +45,7 @@ interface GameContextType {
   activeCollabOffer: CollaborationProposal | null;
   setActiveCollabOffer: (offer: CollaborationProposal | null) => void;
   respondToCollaboration: (proposalId: string, accept: boolean, ownership?: 'player' | 'collaborator', targetAlbumId?: string) => void;
-  proposeCollaboration: (artistId: string, format: 'single' | 'album' | 'remix', albumId?: string, originalSongId?: string) => { success: boolean; message: string };
+  proposeCollaboration: (artistId: string | string[], format: 'single' | 'album' | 'remix', albumId?: string, originalSongId?: string) => { success: boolean; message: string };
   createSongRemix: (originalSong: Song, guestArtistName: string) => void;
   releaseSingle: (songDraft: any) => any;
   scheduleSongRelease: (songDraft: any) => void;
@@ -150,7 +151,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         charisma: 60,
         energy: 100,
         reputation: 15,
-        fans: 2500,
+        fans: 0,
         money: 1500
       },
       avatarIcon: data.avatarIcon || '🎤',
@@ -773,95 +774,45 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setInbox(prev => prev.map(p => p.id === proposalId ? { ...p, status: accept ? 'accepted' : 'rejected' } : p));
   };
 
-  // Player-initiated Collaboration Proposal (Active Propose)
+  // Player-initiated proposals create pending DMs. The song is only created after acceptance.
   const proposeCollaboration = (
-    artistId: string,
+    artistId: string | string[],
     format: 'single' | 'album' | 'remix',
     albumId?: string,
     originalSongId?: string
   ): { success: boolean; message: string } => {
     if (!singer) return { success: false, message: 'No hay cantante activo.' };
-    const targetArtist = FAMOUS_ARTISTS.find(a => a.id === artistId);
-    if (!targetArtist) return { success: false, message: 'Artista no encontrado en el directorio.' };
-
-    const perm = evaluateCollabPermission(singer, discography, targetArtist, inbox);
-    if (!perm.canPropose) {
-      return { success: false, message: perm.explanation };
+    const artistIds = Array.isArray(artistId) ? artistId : [artistId];
+    const targets = artistIds.map(id => FAMOUS_ARTISTS.find(a => a.id === id)).filter(Boolean) as NPCArtist[];
+    if (!targets.length) return { success: false, message: 'No se encontraron artistas seleccionados.' };
+    if (singer.stats.energy < 15 || singer.stats.money < 6000) {
+      return { success: false, message: 'Necesitas 15 de energía y 6.000 € para enviar una propuesta.' };
     }
-
-    if (singer.stats.energy < 15) {
-      return { success: false, message: 'Necesitas al menos 15 de energía para entrar al estudio a grabar una colaboración.' };
-    }
-
-    const studioCost = format === 'single' ? 10000 : 6000;
-    if (singer.stats.money < studioCost) {
-      return { success: false, message: `Necesitas al menos ${studioCost.toLocaleString()} € de presupuesto para producir la colaboración.` };
-    }
-
-    const targetAlbum = albumId ? albums.find(a => a.id === albumId) : undefined;
     const originalSong = originalSongId ? discography.find(song => song.id === originalSongId) : undefined;
-    const songTitleProposed = originalSong
-      ? `${originalSong.title} (Remix)`
-      : `${targetArtist.name.split(' ')[0]} & ${singer.artistName} - Conexión`;
-    const combinedFollowers = targetArtist.followers + singer.stats.fans;
-    const initialStreams = Math.floor(combinedFollowers * 0.12) + 250000;
+    if (format === 'remix' && !originalSong) return { success: false, message: 'Selecciona la canción del remix.' };
 
-    const collabSong: Song = {
-      id: 'collab_out_' + Date.now(),
-      title: `${songTitleProposed} (feat. ${targetArtist.name})`,
-      genre: targetArtist.genre,
-      theme: 'Fiesta / Flex',
-      quality: Math.min(99, Math.floor((singer.stats.voice + singer.stats.flow) / 2) + 15),
-      producer: 'Estudio Profesional',
-      featuredArtists: [targetArtist.name],
-      streamsTotal: initialStreams,
-      streamsWeekly: Math.floor(initialStreams * 0.4),
-      releaseWeek: singer.careerWeek,
-      releaseYear: singer.careerYear,
-      isSingle: !targetAlbum,
-      albumId: targetAlbum ? targetAlbum.id : undefined,
-      coverColor: 'from-fuchsia-600 via-purple-700 to-indigo-900',
-      certification: initialStreams >= 1000000 ? 'Platino' : 'Oro'
-    };
-
-    if (targetAlbum) {
-      setAlbums(prev => prev.map(a => a.id === targetAlbum.id ? { ...a, tracklist: [...a.tracklist, collabSong] } : a));
-    } else {
-      setDiscography(prev => [collabSong, ...prev]);
-    }
-
-    const fansGained = Math.floor(targetArtist.followers * 0.04) + 15000;
-    const repGained = perm.relationType === 'mentor_small' ? 8 : (perm.relationType === 'unlocked_famous' ? 12 : 6);
-
-    setSinger(prev => prev ? {
-      ...prev,
-      contactedArtistIds: Array.from(new Set([...(prev.contactedArtistIds || []), targetArtist.id])),
-      stats: {
-        ...prev.stats,
-        energy: prev.stats.energy - 15,
-        money: prev.stats.money - studioCost,
-        fans: prev.stats.fans + fansGained,
-        reputation: Math.min(100, prev.stats.reputation + repGained)
-      }
-    } : null);
-
-    const newsCollab: NewsArticle = {
-      id: 'news_collab_out_' + Date.now(),
-      headline: `🤝 ¡NUEVO JUNTE! ${singer.artistName} colabora con ${targetArtist.name} en "${collabSong.title}"`,
-      source: 'Mundo Urbano',
-      snippet: perm.relationType === 'mentor_small'
-        ? `${singer.artistName} apadrina a la joven promesa ${targetArtist.name} en una colaboración muy aplaudida por la crítica.`
-        : `Los artistas unen fuerzas en un junte estelar que ya escala posiciones en los charts.`,
-      timeAgo: `Semana ${singer.careerWeek}`,
-      category: 'colaboracion',
-      sentiment: 'positive'
-    };
-    setNews(prev => [newsCollab, ...prev]);
-
-    return { 
-      success: true, 
-      message: `¡Colaboración con ${targetArtist.name} grabada y publicada! (+${fansGained.toLocaleString()} oyentes, +${repGained} reputación)` 
-    };
+    const eligibleTargets = targets.filter(target => evaluateCollabPermission(singer, discography, target, inbox).canPropose);
+    if (!eligibleTargets.length) return { success: false, message: 'No puedes proponer a los artistas seleccionados por tu estatus actual.' };
+    const now = Date.now();
+    const proposals: CollaborationProposal[] = eligibleTargets.map((target, index) => ({
+      id: `proposal_out_${now}_${index}`,
+      fromArtist: { ...target, name: singer.artistName, id: singer.id },
+      songTitleProposed: originalSong ? `${originalSong.title} (Remix)` : `${singer.artistName} - Nueva colaboración`,
+      genre: target.genre,
+      role: 'feat',
+      splitOffer: 50,
+      budgetOffered: 6000,
+      advancePayment: 0,
+      message: `${singer.artistName} te propone grabar un ${format === 'remix' ? 'remix' : 'tema conjunto'}. Si aceptas, se abrirá el creador de canciones.`,
+      timestamp: new Date().toISOString(),
+      status: 'pending',
+      isRemixOffer: format === 'remix',
+      targetAlbumId: albumId,
+      artistOrigin: target.origin
+    }));
+    setInbox(prev => [...proposals, ...prev]);
+    setSinger(prev => prev ? { ...prev, stats: { ...prev.stats, energy: prev.stats.energy - 15, money: prev.stats.money - 6000 } } : null);
+    return { success: true, message: `Propuesta enviada a ${eligibleTargets.length} artista${eligibleTargets.length === 1 ? '' : 's'}. La canción se creará cuando acepten.` };
   };
 
   // Official Song Remix Creator

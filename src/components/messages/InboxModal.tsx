@@ -50,6 +50,7 @@ export const InboxModal: React.FC = () => {
   
   // Modal for proposing collab to an artist
   const [targetArtistForModal, setTargetArtistForModal] = useState<NPCArtist | null>(null);
+  const [selectedArtistIds, setSelectedArtistIds] = useState<string[]>([]);
   const [proposeFormat, setProposeFormat] = useState<'single' | 'album' | 'remix'>('single');
   const [targetAlbumId, setTargetAlbumId] = useState<string>('');
   const [originalSongId, setOriginalSongId] = useState<string>('');
@@ -94,7 +95,8 @@ export const InboxModal: React.FC = () => {
 
   const handleSendProposal = () => {
     if (!targetArtistForModal) return;
-    const albumIdToUse = (proposeFormat === 'album' || proposeFormat === 'remix') ? (targetAlbumId || inProgressAlbums[0]?.id) : undefined;
+    const artistIdsToContact = selectedArtistIds.length ? selectedArtistIds : [targetArtistForModal.id];
+    const albumIdToUse = proposeFormat === 'album' ? (targetAlbumId || inProgressAlbums[0]?.id) : undefined;
     
     if (proposeFormat === 'album' && !albumIdToUse) {
       alert('Debes tener un álbum en grabación en el Estudio para seleccionar esta opción.');
@@ -106,10 +108,11 @@ export const InboxModal: React.FC = () => {
       return;
     }
 
-    const res = proposeCollaboration(targetArtistForModal.id, proposeFormat, albumIdToUse, originalSongId || undefined);
+    const res = proposeCollaboration(artistIdsToContact, proposeFormat, albumIdToUse, originalSongId || undefined);
     alert(res.message);
     if (res.success) {
       setTargetArtistForModal(null);
+      setSelectedArtistIds([]);
     }
   };
 
@@ -579,6 +582,7 @@ export const InboxModal: React.FC = () => {
                       <button
                         onClick={() => {
                           setTargetArtistForModal(artist);
+                          setSelectedArtistIds([artist.id]);
                           setProposeFormat('single');
                         }}
                         className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-purple-600/20 active:scale-95 transition"
@@ -703,8 +707,23 @@ export const InboxModal: React.FC = () => {
               </button>
             </div>
 
-            {/* Format Picker */}
-            <div className="space-y-2">
+  <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
+  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Artistas a los que enviar la propuesta</label>
+  <p className="text-[11px] text-slate-400">Puedes proponer el mismo FT o remix a varias personas. Cada una responderá por separado.</p>
+  <select
+  multiple
+  value={selectedArtistIds.length ? selectedArtistIds : [targetArtistForModal.id]}
+  onChange={(event) => setSelectedArtistIds(Array.from(event.target.selectedOptions, option => option.value))}
+  className="min-h-24 w-full rounded-xl bg-white/5 border border-white/10 text-xs text-white p-2"
+  >
+  {filteredArtists.filter(artist => evaluateCollabPermission(singer, discography, artist, inbox).canPropose).map(artist => (
+    <option key={artist.id} value={artist.id}>{artist.name}</option>
+  ))}
+  </select>
+  </div>
+
+  {/* Format Picker */}
+  <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">¿Dónde lanzar el tema?</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
@@ -789,15 +808,15 @@ export const InboxModal: React.FC = () => {
             <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2 text-xs">
               <div className="flex justify-between text-slate-400">
                 <span>Coste de producción en estudio:</span>
-                <strong className="text-white">{proposeFormat === 'single' ? '10.000 €' : '6.000 €'}</strong>
+                <strong className="text-white">6.000 €</strong>
               </div>
               <div className="flex justify-between text-slate-400">
                 <span>Energía requerida:</span>
                 <strong className="text-amber-400">15 Energía</strong>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>Previsión de nuevos oyentes:</span>
-                <strong className="text-emerald-400">+{(Math.floor(targetArtistForModal.followers * 0.04) + 15000).toLocaleString()} oyentes</strong>
+  <span>Estado de la propuesta:</span>
+  <strong className="text-amber-400">Pendiente de aceptación</strong>
               </div>
             </div>
 
