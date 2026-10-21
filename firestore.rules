@@ -1,0 +1,90 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users/{userId}
+// Document ID: userId (matches auth.uid)
+// Fields:
+//   - email: string (required, valid email)
+//   - createdAt: timestamp (required, immutable)
+//   - lastLoginAt: timestamp (optional)
+//
+// Collection: users/{userId}/careers/{careerId}
+// Document ID: careerId (e.g. unique ID)
+// Fields:
+//   - singerName: string (required, 1-60 chars)
+//   - realName: string (required, 1-60 chars)
+//   - age: number (required, 14-99)
+//   - nationality: string (required, 2-50 chars)
+//   - genre: string (required, 2-30 chars)
+//   - stats: map (required)
+//   - discography: list (optional, max 500 items)
+//   - albums: list (optional, max 100 items)
+//   - trophies: list (optional, max 100 items)
+//   - bzrpDone: bool (required)
+//   - updatedAt: timestamp (required)
+//   - createdAt: timestamp (required, immutable)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['email', 'createdAt']) &&
+             data.email is string &&
+             isValidEmail(data.email) &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidCareer(data) {
+      return data.keys().hasAll(['singerName', 'realName', 'age', 'nationality', 'genre', 'stats', 'bzrpDone', 'updatedAt', 'createdAt']) &&
+             data.singerName is string && data.singerName.size() >= 1 && data.singerName.size() <= 60 &&
+             data.realName is string && data.realName.size() >= 1 && data.realName.size() <= 60 &&
+             data.age is number && data.age >= 14 && data.age <= 100 &&
+             data.nationality is string && data.nationality.size() <= 50 &&
+             data.genre is string && data.genre.size() <= 30 &&
+             data.stats is map &&
+             data.bzrpDone is bool &&
+             data.updatedAt is timestamp &&
+             data.createdAt is timestamp;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow update: if isOwner(userId) && isValidUserProfile(request.resource.data) &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(userId);
+
+      // User Careers subcollection
+      match /careers/{careerId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidCareer(request.resource.data);
+        allow update: if isOwner(userId) && isValidCareer(request.resource.data) &&
+                        request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
